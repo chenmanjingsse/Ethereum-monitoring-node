@@ -38,6 +38,9 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/p2p/netutil"
+	//"github.com/vavricka/Ethereum-monitoring-node/go-ethereum/p2p"
+	//"github.com/vavricka/Ethereum-monitoring-node/go-ethereum/p2p"
+	// "github.com/vavricka/Ethereum-monitoring-node/go-ethereum/swarm/log"
 )
 
 const (
@@ -238,6 +241,7 @@ func (tab *Table) Resolve(n *enode.Node) *enode.Node {
 }
 
 // LookupRandom finds random nodes in the network.
+// 随机发现节点
 func (tab *Table) LookupRandom() []*enode.Node {
 	var target encPubkey
 	crand.Read(target[:])
@@ -263,7 +267,7 @@ func (tab *Table) lookup(targetKey encPubkey, refreshIfEmpty bool) []*node {
 	for {
 		tab.mutex.Lock()
 		// generate initial result set
-		result = tab.closest(target, bucketSize)
+		result = tab.closest(target, bucketSize) // 获得与target最近的节点集
 		tab.mutex.Unlock()
 		if len(result.entries) > 0 || !refreshIfEmpty {
 			break
@@ -278,12 +282,17 @@ func (tab *Table) lookup(targetKey encPubkey, refreshIfEmpty bool) []*node {
 
 	for {
 		// ask the alpha closest nodes that we haven't asked yet
-		for i := 0; i < len(result.entries) && pendingQueries < alpha; i++ {
+		for i := 0; i < len(result.entries) && pendingQueries < alpha; i++ { // 循环result中的每个节点
 			n := result.entries[i]
 			if !asked[n.ID()] {
 				asked[n.ID()] = true
 				pendingQueries++
-				go tab.findnode(n, targetKey, reply)
+				// for j := 0; j < 20; j++ { //每个节点查找findnode20次
+				// 	var targetnew encPubkey
+				// 	crand.Read(targetnew[:])
+				// 	go tab.findnode(n, targetnew, reply) // 发出findnode消息，neighbors回复存储在reply中
+				// }
+				go tab.findnode(n, targetKey, reply) // 发出findnode消息，neighbors回复存储在reply中
 			}
 		}
 		if pendingQueries == 0 {
@@ -295,7 +304,8 @@ func (tab *Table) lookup(targetKey encPubkey, refreshIfEmpty bool) []*node {
 			for _, n := range nodes {
 				if n != nil && !seen[n.ID()] {
 					seen[n.ID()] = true
-					result.push(n, bucketSize)
+					// 把buckesize改成16
+					result.push(n, bucketSize) //将findnode返回的reply节点集，加入到result中，一起返回（相当于将所有节点一起返回
 				}
 			}
 		case <-tab.closeReq:
@@ -308,7 +318,24 @@ func (tab *Table) lookup(targetKey encPubkey, refreshIfEmpty bool) []*node {
 
 func (tab *Table) findnode(n *node, targetKey encPubkey, reply chan<- []*node) {
 	fails := tab.db.FindFails(n.ID(), n.IP())
-	r, err := tab.net.findnode(n.ID(), n.addr(), targetKey)
+	// 可以用在这里定义target的值，找到一个节点所有的neighbors
+	r, err := tab.net.findnode(n.ID(), n.addr(), targetKey) // 真正调用findnode消息包的函数，r是neibors消息的节点列表
+	log.Info("findnode", "nodeid", n.ID(), "nodeaddr", n.addr())
+	// for _, neighs := range r {
+	// 	log.Info("n neighbors", "node", n.ID(), "neighbors", neighs.addr())
+	// }
+	createNode(n, true, "none")
+	for _, neighs := range r {
+		//log.Info("neighbors", "clientname", net.)
+		pingerr := tab.net.ping(neighs.ID(), neighs.addr()) // 判断邻居是否可ping通
+		ifLive := true
+		if pingerr != nil {
+			ifLive = false
+		}
+		if !CreateRalation(n, neighs, ifLive, "none", "none") {
+			continue
+		}
+	}
 	if err == errClosed {
 		// Avoid recording failures on shutdown.
 		reply <- nil
@@ -322,13 +349,13 @@ func (tab *Table) findnode(n *node, targetKey encPubkey, reply chan<- []*node) {
 			tab.delete(n)
 		}
 	} else if fails > 0 {
-		tab.db.UpdateFindFails(n.ID(), n.IP(), fails-1)
+		tab.db.UpdateFindFails(n.ID(), n.IP(), fails-1) // 记录发送findnode失败的节点
 	}
 
 	// Grab as many nodes as possible. Some of them might not be alive anymore, but we'll
 	// just remove those again during revalidation.
 	for _, n := range r {
-		tab.addSeenNode(n)
+		tab.addSeenNode(n) // 将r中的节点添加至bucket中，不考虑是否活跃，在doRevalideate函数中再重验证
 	}
 	reply <- r
 }
@@ -344,6 +371,7 @@ func (tab *Table) refresh() <-chan struct{} {
 }
 
 // loop schedules refresh, revalidate runs and coordinates shutdown.
+// 负责刷新、验证桶中节点活跃等进程
 func (tab *Table) loop() {
 	var (
 		revalidate     = time.NewTimer(tab.nextRevalidateTime())
@@ -351,7 +379,7 @@ func (tab *Table) loop() {
 		copyNodes      = time.NewTicker(copyNodesInterval)
 		refreshDone    = make(chan struct{})           // where doRefresh reports completion
 		revalidateDone chan struct{}                   // where doRevalidate reports completion
-		waiting        = []chan struct{}{tab.initDone} // holds waiting callers while doRefresh runs
+		waiting        = []chan struct{}{tab.initDone} // holds waiting callers while doRefresh runs，在doRefresh运行时保持等待的调用者
 	)
 	defer refresh.Stop()
 	defer revalidate.Stop()
@@ -396,7 +424,7 @@ loop:
 	if refreshDone != nil {
 		<-refreshDone
 	}
-	for _, ch := range waiting {
+	for _, ch := range waiting { // 将等待中的调用者都关闭
 		close(ch)
 	}
 	if revalidateDone != nil {
@@ -408,6 +436,7 @@ loop:
 // doRefresh performs a lookup for a random target to keep buckets
 // full. seed nodes are inserted if the table is empty (initial
 // bootstrap or discarded faulty peers).
+// 定时刷桶，保证k桶始终充满可用节点
 func (tab *Table) doRefresh(done chan struct{}) {
 	defer close(done)
 
@@ -420,7 +449,7 @@ func (tab *Table) doRefresh(done chan struct{}) {
 	// We can only do this if we have a secp256k1 identity.
 	var key ecdsa.PublicKey
 	if err := tab.self().Load((*enode.Secp256k1)(&key)); err == nil {
-		tab.lookup(encodePubkey(&key), false)
+		tab.lookup(encodePubkey(&key), false) //以自身为节点刷桶
 	}
 
 	// The Kademlia paper specifies that the bucket refresh should
@@ -429,10 +458,12 @@ func (tab *Table) doRefresh(done chan struct{}) {
 	// (not hash-sized) and it is not easily possible to generate a
 	// sha3 preimage that falls into a chosen bucket.
 	// We perform a few lookups with a random target instead.
-	for i := 0; i < 3; i++ {
+	//for i := 0; i < 3; i++ {
+	// 刷桶20次
+	for i := 0; i < 20; i++ {
 		var target encPubkey
-		crand.Read(target[:])
-		tab.lookup(target, false)
+		crand.Read(target[:])     // 产生随机的target
+		tab.lookup(target, false) // 以随机节点刷桶
 	}
 }
 
@@ -449,17 +480,18 @@ func (tab *Table) loadSeedNodes() {
 
 // doRevalidate checks that the last node in a random bucket is still live
 // and replaces or deletes the node if it isn't.
+// 判断桶中的节点是否活跃，不活跃的情况就进入replace队列
 func (tab *Table) doRevalidate(done chan<- struct{}) {
 	defer func() { done <- struct{}{} }()
 
-	last, bi := tab.nodeToRevalidate()
+	last, bi := tab.nodeToRevalidate() // 返回一个随机的非空桶中的最后一个节点
 	if last == nil {
 		// No non-empty bucket found.
 		return
 	}
 
 	// Ping the selected node and wait for a pong.
-	err := tab.net.ping(last.ID(), last.addr())
+	err := tab.net.ping(last.ID(), last.addr()) // 若没有收到pong消息，则err不为nil
 
 	tab.mutex.Lock()
 	defer tab.mutex.Unlock()
@@ -468,7 +500,7 @@ func (tab *Table) doRevalidate(done chan<- struct{}) {
 		// The node responded, move it to the front.
 		last.livenessChecks++
 		log.Debug("Revalidated node", "b", bi, "id", last.ID(), "checks", last.livenessChecks)
-		tab.bumpInBucket(b, last)
+		tab.bumpInBucket(b, last) // 将b移动到last bucket的最后一个位置
 		return
 	}
 	// No reply received, pick a replacement or delete the node if there aren't

@@ -770,6 +770,9 @@ running:
 					inboundCount++
 				}
 
+				ip, port, ID := getConnected(c.fd.RemoteAddr().String())
+				createConnectedNode(ID, true, name, p.ID().String(), ip, port)
+
 				srv.logPeer.Info("Adding Peer",
 					"LocalTimestamp", time.Now(),
 					"Type", "Add",
@@ -777,8 +780,16 @@ running:
 					"client", name, // client type (geth/parity..)
 					"addr", c.fd.RemoteAddr(),
 					"peers", len(peers),
-					"inbound", inboundCount)
-
+					"inbound", inboundCount,
+					// 从这里开始改
+					"network", c.fd.LocalAddr().Network(),
+					"Caps", p.Caps(),
+					"flags", c.flags, //conn.flags
+					"maxInboundConns", srv.maxInboundConns(),
+					//"localnode", srv.localnode, //本地节点内容，不重要
+					"nodeinfo", srv.NodeInfo(),
+					"peersinfo", srv.PeersInfo(),
+				)
 			}
 			// The dialer logic relies on the assumption that
 			// dial tasks complete after the peer has been added or
@@ -796,14 +807,14 @@ running:
 			if pd.Inbound() {
 				inboundCount--
 			}
-			srv.logPeer.Info("Removing Peer",
-				"LocalTimestamp", time.Now(),
-				"Type", "Remove",
-				"ID", pd.ID(),
-				"duration", d,
-				"err", pd.err,
-				"peers", len(peers),
-				"inbound", inboundCount)
+			// srv.logPeer.Info("Removing Peer",
+			// 	"LocalTimestamp", time.Now(),
+			// 	"Type", "Remove",
+			// 	"ID", pd.ID(),
+			// 	"duration", d,
+			// 	"err", pd.err,
+			// 	"peers", len(peers),
+			// 	"inbound", inboundCount)
 		}
 	}
 

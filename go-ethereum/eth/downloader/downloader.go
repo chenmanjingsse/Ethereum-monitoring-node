@@ -179,29 +179,47 @@ type LightChain interface {
 type BlockChain interface {
 	LightChain
 
-	// HasBlock verifies a block's presence in the local chain.
-	HasBlock(common.Hash, uint64) bool
+	// // HasBlock verifies a block's presence in the local chain.
+	// HasBlock(common.Hash, uint64) bool
 
-	// HasFastBlock verifies a fast block's presence in the local chain.
-	HasFastBlock(common.Hash, uint64) bool
+	// // HasFastBlock verifies a fast block's presence in the local chain.
+	// HasFastBlock(common.Hash, uint64) bool
 
-	// GetBlockByHash retrieves a block from the local chain.
-	GetBlockByHash(common.Hash) *types.Block
+	// // GetBlockByHash retrieves a block from the local chain.
+	// GetBlockByHash(common.Hash) *types.Block
 
-	// CurrentBlock retrieves the head block from the local chain.
-	CurrentBlock() *types.Block
+	// // CurrentBlock retrieves the head block from the local chain.
+	// CurrentBlock() *types.Block
 
-	// CurrentFastBlock retrieves the head fast block from the local chain.
-	CurrentFastBlock() *types.Block
+	// // CurrentFastBlock retrieves the head fast block from the local chain.
+	// CurrentFastBlock() *types.Block
 
-	// FastSyncCommitHead directly commits the head block to a certain entity.
-	FastSyncCommitHead(common.Hash) error
+	// // FastSyncCommitHead directly commits the head block to a certain entity.
+	// FastSyncCommitHead(common.Hash) error
 
-	// InsertChain inserts a batch of blocks into the local chain.
-	InsertChain(types.Blocks) (int, error)
+	// // InsertChain inserts a batch of blocks into the local chain.
+	// InsertChain(types.Blocks) (int, error)
 
-	// InsertReceiptChain inserts a batch of receipts into the local chain.
-	InsertReceiptChain(types.Blocks, []types.Receipts) (int, error)
+	// // InsertReceiptChain inserts a batch of receipts into the local chain.
+	// InsertReceiptChain(types.Blocks, []types.Receipts) (int, error)
+
+	// HasHeader verifies a header's presence in the local chain.
+	HasHeader(common.Hash, uint64) bool
+
+	// GetHeaderByHash retrieves a header from the local chain.
+	GetHeaderByHash(common.Hash) *types.Header
+
+	// CurrentHeader retrieves the head header from the local chain.
+	CurrentHeader() *types.Header
+
+	// GetTd returns the total difficulty of a local block.
+	GetTd(common.Hash, uint64) *big.Int
+
+	// InsertHeaderChain inserts a batch of headers into the local chain.
+	InsertHeaderChain([]*types.Header, int) (int, error)
+
+	// Rollback removes a few recently added elements from the local chain.
+	Rollback([]common.Hash)
 }
 
 // New creates a new downloader to fetch hashes and blocks from remote peers.
@@ -255,9 +273,11 @@ func (d *Downloader) Progress() ethereum.SyncProgress {
 	current := uint64(0)
 	switch d.mode {
 	case FullSync:
-		current = d.blockchain.CurrentBlock().NumberU64()
+		// current = d.blockchain.CurrentBlock().NumberU64()
+		current = d.lightchain.CurrentHeader().Number.Uint64()
 	case FastSync:
-		current = d.blockchain.CurrentFastBlock().NumberU64()
+		// current = d.blockchain.CurrentFastBlock().NumberU64()
+		current = d.lightchain.CurrentHeader().Number.Uint64()
 	case LightSync:
 		current = d.lightchain.CurrentHeader().Number.Uint64()
 	}
@@ -657,9 +677,11 @@ func (d *Downloader) findAncestor(p *peerConnection, remoteHeader *types.Header)
 	)
 	switch d.mode {
 	case FullSync:
-		localHeight = d.blockchain.CurrentBlock().NumberU64()
+		// localHeight = d.blockchain.CurrentBlock().NumberU64()
+		localHeight = d.lightchain.CurrentHeader().Number.Uint64()
 	case FastSync:
-		localHeight = d.blockchain.CurrentFastBlock().NumberU64()
+		// localHeight = d.blockchain.CurrentFastBlock().NumberU64()
+		localHeight = d.lightchain.CurrentHeader().Number.Uint64()
 	default:
 		localHeight = d.lightchain.CurrentHeader().Number.Uint64()
 	}
@@ -738,9 +760,11 @@ func (d *Downloader) findAncestor(p *peerConnection, remoteHeader *types.Header)
 				var known bool
 				switch d.mode {
 				case FullSync:
-					known = d.blockchain.HasBlock(h, n)
+					// known = d.blockchain.HasBlock(h, n)
+					known = d.lightchain.HasHeader(h, n)
 				case FastSync:
-					known = d.blockchain.HasFastBlock(h, n)
+					// known = d.blockchain.HasFastBlock(h, n)
+					known = d.lightchain.HasHeader(h, n)
 				default:
 					known = d.lightchain.HasHeader(h, n)
 				}
@@ -811,9 +835,11 @@ func (d *Downloader) findAncestor(p *peerConnection, remoteHeader *types.Header)
 				var known bool
 				switch d.mode {
 				case FullSync:
-					known = d.blockchain.HasBlock(h, n)
+					// known = d.blockchain.HasBlock(h, n)
+					known = d.lightchain.HasHeader(h, n)
 				case FastSync:
-					known = d.blockchain.HasFastBlock(h, n)
+					// known = d.blockchain.HasFastBlock(h, n)
+					known = d.lightchain.HasHeader(h, n)
 				default:
 					known = d.lightchain.HasHeader(h, n)
 				}
@@ -948,10 +974,11 @@ func (d *Downloader) fetchHeaders(p *peerConnection, from uint64, pivot uint64) 
 					if d.mode == LightSync {
 						head = d.lightchain.CurrentHeader().Number.Uint64()
 					} else {
-						head = d.blockchain.CurrentFastBlock().NumberU64()
-						if full := d.blockchain.CurrentBlock().NumberU64(); head < full {
-							head = full
-						}
+						// head = d.blockchain.CurrentFastBlock().NumberU64()
+						head = d.lightchain.CurrentHeader().Number.Uint64()
+						// if full := d.blockchain.CurrentBlock().NumberU64(); head < full {
+						// 	head = full
+						// }
 					}
 					// If the head is way older than this batch, delay the last few headers
 					if head+uint64(reorgProtThreshold) < headers[n-1].Number.Uint64() {
@@ -1297,16 +1324,16 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 				hashes[i] = header.Hash()
 			}
 			lastHeader, lastFastBlock, lastBlock := d.lightchain.CurrentHeader().Number, common.Big0, common.Big0
-			if d.mode != LightSync {
-				lastFastBlock = d.blockchain.CurrentFastBlock().Number()
-				lastBlock = d.blockchain.CurrentBlock().Number()
-			}
+			// if d.mode != LightSync {
+			// 	lastFastBlock = d.blockchain.CurrentFastBlock().Number()
+			// 	lastBlock = d.blockchain.CurrentBlock().Number()
+			// }
 			d.lightchain.Rollback(hashes)
 			curFastBlock, curBlock := common.Big0, common.Big0
-			if d.mode != LightSync {
-				curFastBlock = d.blockchain.CurrentFastBlock().Number()
-				curBlock = d.blockchain.CurrentBlock().Number()
-			}
+			// if d.mode != LightSync {
+			// 	curFastBlock = d.blockchain.CurrentFastBlock().Number()
+			// 	curBlock = d.blockchain.CurrentBlock().Number()
+			// }
 			log.Warn("Rolled back headers", "count", len(hashes),
 				"header", fmt.Sprintf("%d->%d", lastHeader, d.lightchain.CurrentHeader().Number),
 				"fast", fmt.Sprintf("%d->%d", lastFastBlock, curFastBlock),
@@ -1315,7 +1342,7 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 	}()
 
 	// Wait for batches of headers to process
-	gotHeaders := false
+	// gotHeaders := false
 
 	for {
 		select {
@@ -1344,12 +1371,14 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 				// L: Sync begins, and finds common ancestor at 11
 				// L: Request new headers up from 11 (R's TD was higher, it must have something)
 				// R: Nothing to give
-				if d.mode != LightSync {
-					head := d.blockchain.CurrentBlock()
-					if !gotHeaders && td.Cmp(d.blockchain.GetTd(head.Hash(), head.NumberU64())) > 0 {
-						return errStallingPeer
-					}
-				}
+
+				// if d.mode != LightSync {
+				// 	head := d.blockchain.CurrentBlock()
+				// 	if !gotHeaders && td.Cmp(d.blockchain.GetTd(head.Hash(), head.NumberU64())) > 0 {
+				// 		return errStallingPeer
+				// 	}
+				// }
+
 				// If fast or light syncing, ensure promised headers are indeed delivered. This is
 				// needed to detect scenarios where an attacker feeds a bad pivot and then bails out
 				// of delivering the post-pivot blocks that would flag the invalid content.
@@ -1368,7 +1397,7 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 				return nil
 			}
 			// Otherwise split the chunk of headers into batches and process them
-			gotHeaders = true
+			// gotHeaders = true
 
 			for len(headers) > 0 {
 				// Terminate if something failed in between processing chunks
@@ -1487,18 +1516,18 @@ func (d *Downloader) importBlockResults(results []*fetchResult) error {
 	for i, result := range results {
 		blocks[i] = types.NewBlockWithHeader(result.Header).WithBody(result.Transactions, result.Uncles)
 	}
-	if index, err := d.blockchain.InsertChain(blocks); err != nil {
-		if index < len(results) {
-			log.Debug("Downloaded item processing failed", "number", results[index].Header.Number, "hash", results[index].Header.Hash(), "err", err)
-		} else {
-			// The InsertChain method in blockchain.go will sometimes return an out-of-bounds index,
-			// when it needs to preprocess blocks to import a sidechain.
-			// The importer will put together a new list of blocks to import, which is a superset
-			// of the blocks delivered from the downloader, and the indexing will be off.
-			log.Debug("Downloaded item processing failed on sidechain import", "index", index, "err", err)
-		}
-		return errInvalidChain
-	}
+	// if index, err := d.blockchain.InsertChain(blocks); err != nil {
+	// 	if index < len(results) {
+	// 		log.Debug("Downloaded item processing failed", "number", results[index].Header.Number, "hash", results[index].Header.Hash(), "err", err)
+	// 	} else {
+	// 		// The InsertChain method in blockchain.go will sometimes return an out-of-bounds index,
+	// 		// when it needs to preprocess blocks to import a sidechain.
+	// 		// The importer will put together a new list of blocks to import, which is a superset
+	// 		// of the blocks delivered from the downloader, and the indexing will be off.
+	// 		log.Debug("Downloaded item processing failed on sidechain import", "index", index, "err", err)
+	// 	}
+	// 	return errInvalidChain
+	// }
 	return nil
 }
 
@@ -1638,22 +1667,22 @@ func (d *Downloader) commitFastSyncData(results []*fetchResult, stateSync *state
 		blocks[i] = types.NewBlockWithHeader(result.Header).WithBody(result.Transactions, result.Uncles)
 		receipts[i] = result.Receipts
 	}
-	if index, err := d.blockchain.InsertReceiptChain(blocks, receipts); err != nil {
-		log.Debug("Downloaded item processing failed", "number", results[index].Header.Number, "hash", results[index].Header.Hash(), "err", err)
-		return errInvalidChain
-	}
+	// if index, err := d.blockchain.InsertReceiptChain(blocks, receipts); err != nil {
+	// 	log.Debug("Downloaded item processing failed", "number", results[index].Header.Number, "hash", results[index].Header.Hash(), "err", err)
+	// 	return errInvalidChain
+	// }
 	return nil
 }
 
 func (d *Downloader) commitPivotBlock(result *fetchResult) error {
 	block := types.NewBlockWithHeader(result.Header).WithBody(result.Transactions, result.Uncles)
 	log.Debug("Committing fast sync pivot as new head", "number", block.Number(), "hash", block.Hash())
-	if _, err := d.blockchain.InsertReceiptChain([]*types.Block{block}, []types.Receipts{result.Receipts}); err != nil {
-		return err
-	}
-	if err := d.blockchain.FastSyncCommitHead(block.Hash()); err != nil {
-		return err
-	}
+	// if _, err := d.blockchain.InsertReceiptChain([]*types.Block{block}, []types.Receipts{result.Receipts}); err != nil {
+	// 	return err
+	// }
+	// if err := d.blockchain.FastSyncCommitHead(block.Hash()); err != nil {
+	// 	return err
+	// }
 	atomic.StoreInt32(&d.committed, 1)
 	return nil
 }

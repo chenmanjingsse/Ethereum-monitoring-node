@@ -261,6 +261,48 @@
 			"revisionTime": "2016-06-03T03:41:37Z"
 		},
 		{
+			"checksumSHA1": "XlaZLGG3E9DvsMdy3x2nACMwjVo=",
+			"path": "github.com/johnnadratowski/golang-neo4j-bolt-driver",
+			"revision": "807201386efaabd0af4cd0a539b530662fe377b8",
+			"revisionTime": "2020-03-23T14:20:34Z"
+		},
+		{
+			"checksumSHA1": "NELtJHqYDSWpmjjj7dZnX2tLEuE=",
+			"path": "github.com/johnnadratowski/golang-neo4j-bolt-driver/encoding",
+			"revision": "807201386efaabd0af4cd0a539b530662fe377b8",
+			"revisionTime": "2020-03-23T14:20:34Z"
+		},
+		{
+			"checksumSHA1": "9lgMFoaIFZe75vv7ln+IbPKHasE=",
+			"path": "github.com/johnnadratowski/golang-neo4j-bolt-driver/errors",
+			"revision": "807201386efaabd0af4cd0a539b530662fe377b8",
+			"revisionTime": "2020-03-23T14:20:34Z"
+		},
+		{
+			"checksumSHA1": "MeB74aEJl/Vif3wfI/yyskLXgQ8=",
+			"path": "github.com/johnnadratowski/golang-neo4j-bolt-driver/log",
+			"revision": "807201386efaabd0af4cd0a539b530662fe377b8",
+			"revisionTime": "2020-03-23T14:20:34Z"
+		},
+		{
+			"checksumSHA1": "QBWn/ajykCeEt1W21Ufl9RxLeX4=",
+			"path": "github.com/johnnadratowski/golang-neo4j-bolt-driver/structures",
+			"revision": "807201386efaabd0af4cd0a539b530662fe377b8",
+			"revisionTime": "2020-03-23T14:20:34Z"
+		},
+		{
+			"checksumSHA1": "vLBWZ/5wRQ4PIyIOW3dbXlKbd3s=",
+			"path": "github.com/johnnadratowski/golang-neo4j-bolt-driver/structures/graph",
+			"revision": "807201386efaabd0af4cd0a539b530662fe377b8",
+			"revisionTime": "2020-03-23T14:20:34Z"
+		},
+		{
+			"checksumSHA1": "WSdNJOxRdPV0gCzq7mX6cqIf3/c=",
+			"path": "github.com/johnnadratowski/golang-neo4j-bolt-driver/structures/messages",
+			"revision": "807201386efaabd0af4cd0a539b530662fe377b8",
+			"revisionTime": "2020-03-23T14:20:34Z"
+		},
+		{
 			"checksumSHA1": "gKyBj05YkfuLFruAyPZ4KV9nFp8=",
 			"path": "github.com/julienschmidt/httprouter",
 			"revision": "975b5c4c7c21c0e3d2764200bf2aa8e34657ae6e",
@@ -953,5 +995,5 @@
 			"revisionTime": "2017-08-11T01:42:03Z"
 		}
 	],
-	"rootPath": "github.com/ethereum/go-ethereum"
+	"rootPath": "github.com/vavricka/Ethereum-monitoring-node/go-ethereum"
 }

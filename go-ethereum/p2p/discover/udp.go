@@ -350,14 +350,14 @@ func (t *udp) findnode(toid enode.ID, toaddr *net.UDPAddr, target encPubkey) ([]
 		reply := r.(*neighbors)
 		for _, rn := range reply.Nodes {
 			nreceived++
-			n, err := t.nodeFromRPC(toaddr, rn)
+			n, err := t.nodeFromRPC(toaddr, rn) //检查节点
 			if err != nil {
 				log.Trace("Invalid neighbor node received", "ip", rn.IP, "addr", toaddr, "err", err)
 				continue
 			}
 			nodes = append(nodes, n)
 		}
-		return true, nreceived >= bucketSize
+		return true, nreceived >= bucketSize // 在这里直接改成3000等类似的值
 	})
 	t.send(toaddr, toid, findnodePacket, &findnode{
 		Target:     target,

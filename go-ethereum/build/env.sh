@@ -21,6 +21,9 @@ fi
 # Set up the environment to use the workspace.
 GOPATH="$workspace"
 export GOPATH
+echo $GOPATH
+GO111MODULE="off"
+export GO111MODULE
 
 # Run the command inside the workspace.
 cd "$ethdir/go-ethereum"

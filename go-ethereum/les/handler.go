@@ -120,6 +120,8 @@ type ProtocolManager struct {
 	// wait group is used for graceful shutdowns during downloading
 	// and processing
 	wg *sync.WaitGroup
+
+	logPeer log.Logger
 }
 
 // NewProtocolManager returns a new ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
@@ -324,6 +326,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	}
 }
 
+// 请求列表
 var reqList = []uint64{GetBlockHeadersMsg, GetBlockBodiesMsg, GetCodeMsg, GetReceiptsMsg, GetProofsV1Msg, SendTxMsg, SendTxV2Msg, GetTxStatusMsg, GetHeaderProofsMsg, GetProofsV2Msg, GetHelperTrieProofsMsg}
 
 // handleMsg is invoked whenever an inbound message is received from a remote
@@ -335,6 +338,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return err
 	}
 	p.Log().Trace("Light Ethereum message arrived", "code", msg.Code, "bytes", msg.Size)
+	pm.logPeer.Info("light peerID", p.ID())
+	log.Info("light node", "nodeid", p.ID())
+	p.Log().Info("light node", "nodeid", p.ID())
 
 	costs := p.fcCosts[msg.Code]
 	reject := func(reqCnt, maxCnt uint64) bool {

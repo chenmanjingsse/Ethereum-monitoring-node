@@ -110,6 +110,8 @@ type ProtocolManager struct {
 	// wait group is used for graceful shutdowns during downloading
 	// and processing
 	wg sync.WaitGroup
+
+	logPeer log.Logger
 }
 
 // NewProtocolManager returns a new Ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
@@ -379,6 +381,11 @@ func (pm *ProtocolManager) handle(p *peer) error {
 func (pm *ProtocolManager) handleMsg(p *peer) error {
 	// Read the next message from the remote peer, and ensure it's fully consumed
 	msg, err := p.rw.ReadMsg()
+
+	pm.logPeer.Info("full peerID", p.ID())
+	log.Info("full node", "nodeid", p.ID())
+	p.Log().Info("full node", "nodeid", p.ID())
+
 	if err != nil {
 		return err
 	}

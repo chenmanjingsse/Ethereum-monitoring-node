@@ -33,8 +33,8 @@ import (
 // The fields of Node may not be modified.
 type node struct {
 	enode.Node
-	addedAt        time.Time // time when the node was added to the table
-	livenessChecks uint      // how often liveness was checked
+	addedAt        time.Time  // time when the node was added to the table
+	livenessChecks uint       // how often liveness was checked
 }
 
 type encPubkey [64]byte
@@ -46,7 +46,7 @@ func encodePubkey(key *ecdsa.PublicKey) encPubkey {
 	return e
 }
 
-func decodePubkey(e encPubkey) (*ecdsa.PublicKey, error) {
+func decodePubkey(e encPubkey) (*ecdsa.PublicKey, error) { //返回节点公钥？
 	p := &ecdsa.PublicKey{Curve: crypto.S256(), X: new(big.Int), Y: new(big.Int)}
 	half := len(e) / 2
 	p.X.SetBytes(e[:half])

@@ -481,7 +481,9 @@ func (pool *TxPool) reset(oldHead, newHead *types.Header) {
 	pool.logBlockHead.Info("NewBlockHead",
 		"LocalTimestamp", time.Now(),
 		"BlockHash", newHead.Hash(),
-		"Number", newHead.Number)
+		"Number", newHead.Number,
+		// 从这里开始改
+		"Signer", pool.signer) // 添加新块的签名者，谁第一个发现这个块
 }
 
 // Stop terminates the transaction pool.
