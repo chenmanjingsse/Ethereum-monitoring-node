@@ -319,13 +319,37 @@ func (tab *Table) lookup(targetKey encPubkey, refreshIfEmpty bool) []*node {
 func (tab *Table) findnode(n *node, targetKey encPubkey, reply chan<- []*node) {
 	fails := tab.db.FindFails(n.ID(), n.IP())
 	// 可以用在这里定义target的值，找到一个节点所有的neighbors
-	r, err := tab.net.findnode(n.ID(), n.addr(), targetKey) // 真正调用findnode消息包的函数，r是neibors消息的节点列表
+
+	var err error
+	nodes := make([]*node, 0)
+	var lock sync.RWMutex
+	var wg sync.WaitGroup
+	for i := 0; i < 20; i++ {
+		wg.Add(1)
+		go func() {
+			defer func() {
+				wg.Done()
+			}()
+			var targetnew encPubkey
+			crand.Read(targetnew[:])
+			r, tmpErr := tab.net.findnode(n.ID(), n.addr(), targetnew) // 真正调用findnode消息包的函数，r是neibors消息的节点列表
+			if tmpErr != nil {
+				err = tmpErr
+				return
+			}
+			lock.Lock()
+			nodes = append(nodes, r...)
+			lock.Unlock()
+		}()
+	}
+	wg.Wait()
+
 	log.Info("findnode", "nodeid", n.ID(), "nodeaddr", n.addr())
 	// for _, neighs := range r {
 	// 	log.Info("n neighbors", "node", n.ID(), "neighbors", neighs.addr())
 	// }
 	createNode(n, true, "none")
-	for _, neighs := range r {
+	for _, neighs := range nodes {
 		//log.Info("neighbors", "clientname", net.)
 		pingerr := tab.net.ping(neighs.ID(), neighs.addr()) // 判断邻居是否可ping通
 		ifLive := true
@@ -340,7 +364,7 @@ func (tab *Table) findnode(n *node, targetKey encPubkey, reply chan<- []*node) {
 		// Avoid recording failures on shutdown.
 		reply <- nil
 		return
-	} else if err != nil || len(r) == 0 {
+	} else if err != nil || len(nodes) == 0 {
 		fails++
 		tab.db.UpdateFindFails(n.ID(), n.IP(), fails)
 		log.Trace("Findnode failed", "id", n.ID(), "failcount", fails, "err", err)
@@ -354,10 +378,10 @@ func (tab *Table) findnode(n *node, targetKey encPubkey, reply chan<- []*node) {
 
 	// Grab as many nodes as possible. Some of them might not be alive anymore, but we'll
 	// just remove those again during revalidation.
-	for _, n := range r {
+	for _, n := range nodes {
 		tab.addSeenNode(n) // 将r中的节点添加至bucket中，不考虑是否活跃，在doRevalideate函数中再重验证
 	}
-	reply <- r
+	reply <- nodes
 }
 
 func (tab *Table) refresh() <-chan struct{} {
